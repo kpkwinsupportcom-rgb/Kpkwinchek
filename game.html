@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KPK WIN - Compact Stats</title>
+    <style>
+        body { background-color: #0b0b0b; color: white; font-family: sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow-x: hidden; }
+        .header-main { position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background: #111; border-bottom: 1px solid #222; }
+        .logo-text { color: #ff0055; font-size: 13px; font-weight: bold; }
+        .balance-text { color: #00ff00; font-size: 13px; font-weight: bold; }
+        
+        .history-strip { display: flex; gap: 4px; padding: 4px; overflow-x: auto; background: #000; border-bottom: 1px solid #333; min-height: 22px; scrollbar-width: none; }
+        .hist-val { padding: 1px 6px; border-radius: 8px; font-size: 9px; font-weight: bold; background: #1a1a1a; border: 1px solid #333; white-space: nowrap; }
+
+        #main-text { font-size: 40px; font-weight: 900; color: white; transition: color 0.1s; }
+        .crash-red { color: #ff0055 !important; }
+
+        /* Compact Game Area */
+        .game-area { width: 100%; height: 170px; background: #050505; position: relative; overflow: hidden; }
+        #gameCanvas { width: 100%; height: 100%; display: block; }
+        #multiplier-container { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%; z-index: 5; pointer-events: none; }
+
+        .progress-container { width: 100%; height: 3px; background: #222; border-bottom: 1px solid #333; position: relative; }
+        #time-progress { height: 100%; width: 0%; background: #ff0055; transition: width 0.1s linear; }
+
+        /* Enhanced Compact Live Stats */
+        .live-stats-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #000; padding: 6px 10px; border-bottom: 1px solid #222; font-size: 9px; color: #aaa; }
+        .stat-group { display: flex; justify-content: space-between; padding: 0 4px; }
+        .stat-box span { color: white; font-weight: bold; margin-left: 2px; }
+        .stat-win { color: #00ff44 !important; }
+
+        /* Compact Betting Section */
+        .betting-section { padding: 6px; background: #111; display: flex; flex-direction: column; gap: 6px; }
+        .panel { background: #1c1c1c; padding: 8px; border-radius: 10px; border: 1px solid #333; display: flex; flex-direction: column; gap: 6px; }
+        .row { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+        
+        .input-box { flex: 1; background: #000; border-radius: 5px; border: 1px solid #444; display: flex; align-items: center; height: 32px; }
+        .adj-btn { background: #333; color: white; border: none; width: 28px; height: 100%; font-weight: bold; font-size: 15px; }
+        input { flex: 1; background: transparent; border: none; color: #00ff00; text-align: center; font-size: 13px; outline: none; width: 40px; }
+
+        .amt-btn { background: #2a2a2a; border: 1px solid #444; color: #ccc; padding: 4px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+
+        .btn-group { display: flex; gap: 6px; }
+        .main-btn { flex: 2; padding: 10px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; color: white; cursor: pointer; }
+        .bet-btn { background: #28a745; box-shadow: 0 2px 0 #1a632b; }
+        .cash-btn { background: #ffc107; color: black; display: none; box-shadow: 0 2px 0 #b38600; }
+        .auto-btn { flex: 1; background: #444; color: white; font-size: 10px; border-radius: 8px; border: none; font-weight: bold; }
+        .auto-active { background: #ff0055 !important; }
+
+        .tabs-container { background: #000; min-height: 300px; border-top: 1px solid #333; }
+        .tab-buttons { display: flex; background: #111; position: sticky; top: 44px; z-index: 90; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: none; color: #666; font-size: 10px; font-weight: bold; }
+        .tab-btn.active { color: #00ff44; border-bottom: 2px solid #00ff44; }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 10px; color: #aaa; }
+        .data-table th { text-align: left; padding: 8px; color: #555; border-bottom: 1px solid #222; }
+        .data-table td { padding: 6px 8px; border-bottom: 1px solid #111; }
+        .win-row { color: #00ff44 !important; font-weight: bold; }
+
+        .switch { position: relative; display: inline-block; width: 30px; height: 16px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 16px; }
+        .slider:before { position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #28a745; }
+        input:checked + .slider:before { transform: translateX(14px); }
+    </style>
+</head>
+<body>
+
+<div class="header-main">
+    <div class="logo-text">KPK WIN</div>
+    <div class="balance-text" id="balance">100000.00</div>
+</div>
+
+<div class="history-strip" id="history-bar"></div>
+
+<div class="main-container">
+    <div class="game-area">
+        <div id="multiplier-container"><div id="main-text">1.00x</div></div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    
+    <div class="progress-container"><div id="time-progress"></div></div>
+
+    <div class="live-stats-bar">
+        <div class="stat-group">
+            <div class="stat-box">BETS: <span id="total-bets-count">0</span></div>
+            <div class="stat-box">AMT: <span id="total-bets-amount">0.00</span></div>
+        </div>
+        <div class="stat-group">
+            <div class="stat-box">CASH OUT: <span id="total-wins-count" class="stat-win">0</span></div>
+            <div class="stat-box">WIN AMT: <span id="total-wins-amount" class="stat-win">0.00</span></div>
+        </div>
+    </div>
+
+    <div class="betting-section">
+        <div class="panel">
+            <div class="row">
+                <div class="input-box"><button class="adj-btn" onclick="adjust('amt1', -10)">-</button><input type="number" id="amt1" value="160"><button class="adj-btn" onclick="adjust('amt1', 10)">+</button></div>
+                <div class="quick-amounts">
+                    <button class="amt-btn" onclick="setAmt(1, 160)">160</button>
+                    <button class="amt-btn" onclick="setAmt(1, 500)">500</button>
+                    <button class="amt-btn" onclick="setAmt(1, 1000)">1K</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="input-box"><button class="adj-btn" onclick="adjust('auto-val1', -0.1, true)">-</button><input type="number" id="auto-val1" value="2.0" step="0.1"><button class="adj-btn" onclick="adjust('auto-val1', 0.1, true)">+</button></div>
+                <div style="display:flex; align-items:center; gap:5px; font-size:9px;"><span>Auto Cash</span><label class="switch"><input type="checkbox" id="auto-cash-on1"><span class="slider"></span></label></div>
+            </div>
+            <div class="btn-group">
+                <button id="auto-bet1" class="auto-btn" onclick="toggleAuto(1)">AUTO BET</button>
+                <button id="btn1" class="main-btn bet-btn" onclick="placeBet(1)">BET</button>
+                <button id="out1" class="main-btn cash-btn" onclick="cashOut(1)"><span id="win1">0.00</span><br>CASH OUT</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="row">
+                <div class="input-box"><button class="adj-btn" onclick="adjust('amt2', -10)">-</button><input type="number" id="amt2" value="160"><button class="adj-btn" onclick="adjust('amt2', 10)">+</button></div>
+                <div class="quick-amounts">
+                    <button class="amt-btn" onclick="setAmt(2, 160)">160</button>
+                    <button class="amt-btn" onclick="setAmt(2, 500)">500</button>
+                    <button class="amt-btn" onclick="setAmt(2, 1000)">1K</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="input-box"><button class="adj-btn" onclick="adjust('auto-val2', -0.1, true)">-</button><input type="number" id="auto-val2" value="2.0" step="0.1"><button class="adj-btn" onclick="adjust('auto-val2', 0.1, true)">+</button></div>
+                <div style="display:flex; align-items:center; gap:5px; font-size:9px;"><span>Auto Cash</span><label class="switch"><input type="checkbox" id="auto-cash-on2"><span class="slider"></span></label></div>
+            </div>
+            <div class="btn-group">
+                <button id="auto-bet2" class="auto-btn" onclick="toggleAuto(2)">AUTO BET</button>
+                <button id="btn2" class="main-btn bet-btn" onclick="placeBet(2)">BET</button>
+                <button id="out2" class="main-btn cash-btn" onclick="cashOut(2)"><span id="win2">0.00</span><br>CASH OUT</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs-container">
+        <div class="tab-buttons">
+            <button class="tab-btn active" id="tab-btn-live" onclick="showTab('live')">Live Players</button>
+            <button class="tab-btn" id="tab-btn-mine" onclick="showTab('mine')">My Bets</button>
+            <button class="tab-btn" id="tab-btn-top" onclick="showTab('top')">Top</button>
+        </div>
+        <div id="tab-live" class="tab-content"><table class="data-table"><thead><tr><th>NAME</th><th>BET</th><th>MULT.</th><th>WIN</th></tr></thead><tbody id="live-list"></tbody></table></div>
+        <div id="tab-mine" class="tab-content" style="display:none;"><table class="data-table"><thead><tr><th>TIME</th><th>BET</th><th>MULT.</th><th>WIN</th></tr></thead><tbody id="mine-list"></tbody></table></div>
+        <div id="tab-top" class="tab-content" style="display:none;"><table class="data-table"><thead><tr><th>NAME</th><th>BET</th><th>MULT.</th><th>WIN</th></tr></thead><tbody id="top-list"></tbody></table></div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const balanceText = document.getElementById('balance');
+    const mainDisplay = document.getElementById('main-text');
+    const liveList = document.getElementById('live-list');
+    const progressLine = document.getElementById('time-progress');
+    
+    // Stats Elements
+    const totalBetsEl = document.getElementById('total-bets-count');
+    const totalAmtEl = document.getElementById('total-bets-amount');
+    const totalWinsEl = document.getElementById('total-wins-count');
+    const totalWinAmtEl = document.getElementById('total-wins-amount');
+
+    let balance = 100000.00, multiplier = 1.00, gameRunning = false, bettingOpen = false;
+    let crashPoint = 0, startTime = 0, bots = [];
+    let activeBets = { 1: { active: false, amt: 0, auto: false }, 2: { active: false, amt: 0, auto: false } };
+    
+    const planeImg = new Image();
+    planeImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#ff0000" d="M448 336v-40L288 192V72c0-39.8-32.2-72-72-72s-72 32.2-72 72v120L0 296v40l144-48v112l-48 36v32l72-24 72 24v-32l-48-36V288l152 48z" transform="rotate(90 256 256)"/></svg>`);
+
+    function resize() { canvas.width = canvas.parentElement.clientWidth; canvas.height = canvas.parentElement.clientHeight; }
+    window.onresize = resize; resize();
+
+    function showTab(type) {
+        document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + type).style.display = 'block';
+        document.getElementById('tab-btn-' + type).classList.add('active');
+    }
+
+    function setAmt(id, val) { document.getElementById('amt' + id).value = val; }
+    function adjust(id, val, isFloat = false) {
+        let el = document.getElementById(id);
+        let n = parseFloat(el.value) + val;
+        el.value = isFloat ? Math.max(1.1, n).toFixed(1) : Math.max(1, n);
+    }
+
+    function toggleAuto(id) {
+        activeBets[id].auto = !activeBets[id].auto;
+        let btn = document.getElementById('auto-bet' + id);
+        btn.classList.toggle('auto-active');
+        btn.innerText = activeBets[id].auto ? "CANCEL" : "AUTO BET";
+    }
+
+    function initBots() {
+        bots = [];
+        let totalAmt = 0;
+        const names = ["Khan_KPK", "Zia_Pro", "Ali_Jan", "Malik_420", "Pukhtoon", "Jani_7", "Swat_Boy", "Mardan_King", "Sher_Khan", "Zamin", "Gul_Panra", "Hafiz_PC", "Umar_IT", "Bilal_Web", "Aman_Win", "Raza_PK", "Sami_786", "Irfan_Don", "Yousaf_Zai", "Bacha"];
+        names.forEach(n => {
+            let maxAmt = Math.random() > 0.5 ? 25000 : 10000;
+            let b = { name: n, amt: Math.floor(100 + Math.random() * maxAmt), target: (1.1 + Math.random() * 5).toFixed(2), done: false };
+            bots.push(b);
+            totalAmt += b.amt;
+        });
+        bots.sort((a, b) => b.amt - a.amt);
+        
+        // Reset Stats
+        totalBetsEl.innerText = names.length;
+        totalAmtEl.innerText = totalAmt.toFixed(2);
+        totalWinsEl.innerText = "0";
+        totalWinAmtEl.innerText = "0.00";
+        renderBotList();
+    }
+
+    function renderBotList() {
+        liveList.innerHTML = "";
+        bots.forEach(b => {
+            liveList.innerHTML += `<tr id="b-${b.name}"><td>${b.name}</td><td>${b.amt}</td><td id="m-${b.name}">-</td><td id="w-${b.name}">-</td></tr>`;
+        });
+    }
+
+    function startCountdown() {
+        if (gameRunning) return;
+        bettingOpen = true; multiplier = 1.00;
+        initBots();
+        mainDisplay.innerText = "WAITING";
+        mainDisplay.classList.remove('crash-red');
+
+        let duration = 4000;
+        let start = Date.now();
+        let timer = setInterval(() => {
+            let pass = Date.now() - start;
+            let width = (pass / duration) * 100;
+            progressLine.style.width = width + "%";
+            if (pass >= duration) {
+                clearInterval(timer);
+                progressLine.style.width = "0%";
+                bettingOpen = false;
+                startRound();
+            }
+        }, 50);
+
+        for(let i=1; i<=2; i++) if(activeBets[i].auto) placeBet(i);
+    }
+
+    function placeBet(id) {
+        if (!bettingOpen || activeBets[id].active) return;
+        let amt = parseFloat(document.getElementById('amt' + id).value);
+        if (amt > balance) return;
+        balance -= amt; balanceText.innerText = balance.toFixed(2);
+        activeBets[id].active = true; activeBets[id].amt = amt;
+        document.getElementById('btn'+id).style.display='none';
+        document.getElementById('out'+id).style.display='block';
+        
+        // Update live stats for real player
+        totalBetsEl.innerText = parseInt(totalBetsEl.innerText) + 1;
+        totalAmtEl.innerText = (parseFloat(totalAmtEl.innerText) + amt).toFixed(2);
+    }
+
+    function startRound() {
+        crashPoint = (0.97 / (1 - Math.random())).toFixed(2);
+        if (crashPoint < 1.00) crashPoint = 1.00;
+        if (crashPoint > 10000) crashPoint = 10000; 
+        gameRunning = true; startTime = Date.now();
+        animate();
+    }
+
+    function animate() {
+        if (!gameRunning) return;
+        let elapsed = (Date.now() - startTime) / 1000;
+        multiplier = Math.pow(1.012, elapsed * 10);
+        mainDisplay.innerText = multiplier.toFixed(2) + "x";
+
+        let currentWinsCount = 0;
+        let currentWinsAmt = 0;
+
+        bots.forEach(b => {
+            if(!b.done && multiplier >= b.target && multiplier < crashPoint) {
+                b.done = true;
+                let r = document.getElementById(`b-${b.name}`);
+                if(r) {
+                    r.classList.add('win-row');
+                    document.getElementById(`m-${b.name}`).innerText = b.target + "x";
+                    document.getElementById(`w-${b.name}`).innerText = (b.amt * b.target).toFixed(2);
+                }
+            }
+            if(b.done) {
+                currentWinsCount++;
+                currentWinsAmt += (b.amt * parseFloat(b.target));
+            }
+        });
+
+        // Update Stats Bar
+        totalWinsEl.innerText = currentWinsCount;
+        totalWinAmtEl.innerText = currentWinsAmt.toFixed(2);
+
+        for(let i=1; i<=2; i++){
+            if (activeBets[i].active) {
+                document.getElementById('win'+i).innerText = (activeBets[i].amt * multiplier).toFixed(2);
+                if (document.getElementById('auto-cash-on'+i).checked && multiplier >= parseFloat(document.getElementById('auto-val'+i).value)) cashOut(i);
+            }
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let x = Math.min(canvas.width * 0.75, elapsed * 40);
+        let y = (canvas.height - 50) - (Math.pow(x, 1.05) / 2.5);
+        ctx.strokeStyle = '#ff0055'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(0, canvas.height);
+        ctx.quadraticCurveTo(x/2, canvas.height, x, y+30); ctx.stroke();
+        ctx.drawImage(planeImg, x-30, y, 60, 40);
+
+        if (multiplier >= crashPoint) endGame();
+        else requestAnimationFrame(animate);
+    }
+
+    function cashOut(id) {
+        if (activeBets[id].active && gameRunning) {
+            let win = activeBets[id].amt * multiplier;
+            balance += win; balanceText.innerText = balance.toFixed(2);
+            activeBets[id].active = false;
+            document.getElementById('out'+id).style.background="#444";
+        }
+    }
+
+    function endGame() {
+        gameRunning = false;
+        mainDisplay.classList.add('crash-red');
+        
+        let hColor = multiplier < 2 ? '#3498db' : (multiplier < 10 ? '#9b59b6' : '#ff0055');
+        document.getElementById('history-bar').innerHTML = `<div class="hist-val" style="color:${hColor}">${multiplier.toFixed(2)}x</div>` + document.getElementById('history-bar').innerHTML;
+        
+        setTimeout(() => { 
+            for(let i=1; i<=2; i++) {
+                document.getElementById('btn'+i).style.display='block';
+                document.getElementById('out'+i).style.display='none';
+                document.getElementById('out'+i).style.background="#ffc107";
+                activeBets[i].active = false;
+            }
+            startCountdown(); 
+        }, 2500);
+    }
+    window.onload = startCountdown;
+</script>
+</body>
+</html>
